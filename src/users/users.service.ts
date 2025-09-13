@@ -110,4 +110,16 @@ export class UsersService {
       return false;
     }
   }
+
+  async updateUserStatus(id: string, isOnline: boolean): Promise<User | null> {
+    try {
+      return await this.prisma.user.update({
+        where: { id },
+        data: { isOnline },
+      });
+    } catch (error) {
+      // Handle case where user doesn't exist
+      return null;
+    }
+  }
 }

@@ -7,6 +7,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { UsernameModule } from './username/username.module';
 import { ConversationsModule } from './conversations/conversations.module';
 import { MessagesModule } from './messages/messages.module';
+import { SocketModule } from './socket/socket.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -20,6 +21,7 @@ import configuration from './config/configuration';
     UsernameModule,
     ConversationsModule,
     MessagesModule,
+    SocketModule,
   ],
   controllers: [AppController],
   providers: [AppService],
