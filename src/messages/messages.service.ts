@@ -1,12 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { SocketGateway } from '../socket/socket.gateway';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 import type { Message } from '../../generated/prisma';
 
 @Injectable()
 export class MessagesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private socketGateway: SocketGateway
+  ) {}
 
   async create(createMessageDto: CreateMessageDto): Promise<Message> {
     const message = await this.prisma.message.create({
@@ -22,6 +26,17 @@ export class MessagesService {
       where: { id: createMessageDto.conversationId },
       data: { updatedAt: new Date() }
     });
+
+    // Emit new message event to conversation participants via socket
+    console.log('About to emit new message event:', {
+      conversationId: createMessageDto.conversationId,
+      messageId: message.id,
+      socketGateway: !!this.socketGateway
+    });
+    
+    this.socketGateway.emitNewMessage(createMessageDto.conversationId, message);
+    
+    console.log('Socket event emitted successfully');
 
     return message;
   }
