@@ -1,13 +1,28 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { UsersService } from './users.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
+// Mock PrismaService
+const mockPrismaService = {
+  user: {
+    create: vi.fn(),
+    findMany: vi.fn(),
+    findUnique: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  },
+};
+
 describe('UsersService', () => {
   let service: UsersService;
+  let prisma: PrismaService;
 
   beforeEach(() => {
-    service = new UsersService();
+    prisma = mockPrismaService as unknown as PrismaService;
+    service = new UsersService(prisma);
+    vi.clearAllMocks();
   });
 
   it('should be defined', () => {
@@ -15,86 +30,163 @@ describe('UsersService', () => {
   });
 
   describe('findAll', () => {
-    it('should return an array of users', () => {
-      const result = service.findAll();
-      expect(result).toBeInstanceOf(Array);
-      expect(result.length).toBeGreaterThan(0);
-      expect(result[0]).toHaveProperty('id');
-      expect(result[0]).toHaveProperty('email');
-      expect(result[0]).toHaveProperty('name');
+    it('should return an array of users', async () => {
+      const mockUsers = [
+        {
+          id: '507f1f77bcf86cd799439011',
+          username: 'john_doe',
+          name: 'John Doe',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        {
+          id: '507f1f77bcf86cd799439012',
+          username: 'jane_smith',
+          name: 'Jane Smith',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ];
+
+      mockPrismaService.user.findMany.mockResolvedValue(mockUsers);
+
+      const result = await service.findAll();
+      
+      expect(result).toEqual(mockUsers);
+      expect(mockPrismaService.user.findMany).toHaveBeenCalledOnce();
     });
   });
 
   describe('findOne', () => {
-    it('should return a user when valid id is provided', () => {
-      const result = service.findOne(1);
-      expect(result).toBeDefined();
-      expect(result?.id).toBe(1);
-      expect(result?.email).toBe('john@example.com');
+    it('should return a user when valid id is provided', async () => {
+      const mockUser = {
+        id: '507f1f77bcf86cd799439011',
+        username: 'john_doe',
+        name: 'John Doe',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+
+      const result = await service.findOne('507f1f77bcf86cd799439011');
+      
+      expect(result).toEqual(mockUser);
+      expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { id: '507f1f77bcf86cd799439011' },
+      });
     });
 
-    it('should return undefined when invalid id is provided', () => {
-      const result = service.findOne(999);
-      expect(result).toBeUndefined();
+    it('should return null when invalid id is provided', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(null);
+
+      const result = await service.findOne('invalid_id');
+      
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('findByUsername', () => {
+    it('should return a user when valid username is provided', async () => {
+      const mockUser = {
+        id: '507f1f77bcf86cd799439011',
+        username: 'john_doe',
+        name: 'John Doe',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+
+      const result = await service.findByUsername('john_doe');
+      
+      expect(result).toEqual(mockUser);
+      expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { username: 'john_doe' },
+      });
     });
   });
 
   describe('create', () => {
-    it('should create a new user', () => {
+    it('should create a new user', async () => {
       const createUserDto: CreateUserDto = {
-        email: 'test@example.com',
+        username: 'test_user',
         name: 'Test User',
       };
 
-      const initialCount = service.findAll().length;
-      const result = service.create(createUserDto);
+      const mockCreatedUser = {
+        id: '507f1f77bcf86cd799439013',
+        ...createUserDto,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
-      expect(result).toBeDefined();
-      expect(result.email).toBe(createUserDto.email);
-      expect(result.name).toBe(createUserDto.name);
-      expect(result.id).toBeGreaterThan(0);
-      expect(result.createdAt).toBeInstanceOf(Date);
-      expect(result.updatedAt).toBeInstanceOf(Date);
-      expect(service.findAll().length).toBe(initialCount + 1);
+      mockPrismaService.user.create.mockResolvedValue(mockCreatedUser);
+
+      const result = await service.create(createUserDto);
+
+      expect(result).toEqual(mockCreatedUser);
+      expect(mockPrismaService.user.create).toHaveBeenCalledWith({
+        data: createUserDto,
+      });
     });
   });
 
   describe('update', () => {
-    it('should update an existing user', () => {
+    it('should update an existing user', async () => {
       const updateUserDto: UpdateUserDto = {
         name: 'Updated Name',
       };
 
-      const result = service.update(1, updateUserDto);
+      const mockUpdatedUser = {
+        id: '507f1f77bcf86cd799439011',
+        username: 'john_doe',
+        name: 'Updated Name',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
-      expect(result).toBeDefined();
-      expect(result?.name).toBe(updateUserDto.name);
-      expect(result?.email).toBe('john@example.com'); // Should keep original email
-      expect(result?.updatedAt).toBeInstanceOf(Date);
+      mockPrismaService.user.update.mockResolvedValue(mockUpdatedUser);
+
+      const result = await service.update('507f1f77bcf86cd799439011', updateUserDto);
+
+      expect(result).toEqual(mockUpdatedUser);
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith({
+        where: { id: '507f1f77bcf86cd799439011' },
+        data: updateUserDto,
+      });
     });
 
-    it('should return undefined when trying to update non-existent user', () => {
+    it('should return null when trying to update non-existent user', async () => {
       const updateUserDto: UpdateUserDto = {
         name: 'Updated Name',
       };
 
-      const result = service.update(999, updateUserDto);
-      expect(result).toBeUndefined();
+      mockPrismaService.user.update.mockRejectedValue(new Error('User not found'));
+
+      const result = await service.update('invalid_id', updateUserDto);
+      
+      expect(result).toBeNull();
     });
   });
 
   describe('remove', () => {
-    it('should remove an existing user', () => {
-      const initialCount = service.findAll().length;
-      const result = service.remove(1);
+    it('should remove an existing user', async () => {
+      mockPrismaService.user.delete.mockResolvedValue({});
+
+      const result = await service.remove('507f1f77bcf86cd799439011');
 
       expect(result).toBe(true);
-      expect(service.findAll().length).toBe(initialCount - 1);
-      expect(service.findOne(1)).toBeUndefined();
+      expect(mockPrismaService.user.delete).toHaveBeenCalledWith({
+        where: { id: '507f1f77bcf86cd799439011' },
+      });
     });
 
-    it('should return false when trying to remove non-existent user', () => {
-      const result = service.remove(999);
+    it('should return false when trying to remove non-existent user', async () => {
+      mockPrismaService.user.delete.mockRejectedValue(new Error('User not found'));
+
+      const result = await service.remove('invalid_id');
+      
       expect(result).toBe(false);
     });
   });

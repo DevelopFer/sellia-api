@@ -1,75 +1,56 @@
 import { Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-
-export interface User {
-  id: number;
-  email: string;
-  name: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
+import { PrismaService } from '../prisma/prisma.service';
+import { User } from '../../generated/prisma';
 
 @Injectable()
 export class UsersService {
-  private users: User[] = [
-    {
-      id: 1,
-      email: 'john@example.com',
-      name: 'John Doe',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-    {
-      id: 2,
-      email: 'jane@example.com',
-      name: 'Jane Smith',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-  ];
+  constructor(private prisma: PrismaService) {}
 
-  create(createUserDto: CreateUserDto): User {
-    const newUser: User = {
-      id: this.users.length + 1,
-      ...createUserDto,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    this.users.push(newUser);
-    return newUser;
+  async create(createUserDto: CreateUserDto): Promise<User> {
+    return this.prisma.user.create({
+      data: createUserDto,
+    });
   }
 
-  findAll(): User[] {
-    return this.users;
+  async findAll(): Promise<User[]> {
+    return this.prisma.user.findMany();
   }
 
-  findOne(id: number): User | undefined {
-    return this.users.find(user => user.id === id);
+  async findOne(id: string): Promise<User | null> {
+    return this.prisma.user.findUnique({
+      where: { id },
+    });
   }
 
-  update(id: number, updateUserDto: UpdateUserDto): User | undefined {
-    const userIndex = this.users.findIndex(user => user.id === id);
-    if (userIndex === -1) {
-      return undefined;
+  async findByUsername(username: string): Promise<User | null> {
+    return this.prisma.user.findUnique({
+      where: { username },
+    });
+  }
+
+  async update(id: string, updateUserDto: UpdateUserDto): Promise<User | null> {
+    try {
+      return await this.prisma.user.update({
+        where: { id },
+        data: updateUserDto,
+      });
+    } catch (error) {
+      // Handle case where user doesn't exist
+      return null;
     }
-    
-    this.users[userIndex] = {
-      ...this.users[userIndex],
-      ...updateUserDto,
-      updatedAt: new Date(),
-    };
-    
-    return this.users[userIndex];
   }
 
-  remove(id: number): boolean {
-    const userIndex = this.users.findIndex(user => user.id === id);
-    if (userIndex === -1) {
+  async remove(id: string): Promise<boolean> {
+    try {
+      await this.prisma.user.delete({
+        where: { id },
+      });
+      return true;
+    } catch (error) {
+      // Handle case where user doesn't exist
       return false;
     }
-    
-    this.users.splice(userIndex, 1);
-    return true;
   }
 }

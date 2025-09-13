@@ -8,7 +8,9 @@ export default defineConfig({
     environment: 'node',
     include: ['test/**/*.e2e-spec.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
     exclude: ['node_modules', 'dist', '.idea', '.git', '.cache'],
-    testTimeout: 30000,
+    testTimeout: 60000,
+    hookTimeout: 60000,
+    setupFiles: ['./test/test-setup.ts'],
   },
   plugins: [
     swc.vite({

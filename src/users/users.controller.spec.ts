@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersController } from './users.controller';
-import { UsersService, User } from './users.service';
+import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { NotFoundException } from '@nestjs/common';
@@ -10,22 +10,28 @@ describe('UsersController', () => {
   let controller: UsersController;
   let service: UsersService;
 
-  const mockUser: User = {
-    id: 1,
-    email: 'test@example.com',
+  const mockUser = {
+    id: '507f1f77bcf86cd799439011',
+    username: 'test_user',
     name: 'Test User',
     createdAt: new Date(),
     updatedAt: new Date(),
   };
 
   const mockUsersService = {
-    findAll: vi.fn(() => [mockUser]),
-    findOne: vi.fn((id: number) => (id === 1 ? mockUser : undefined)),
-    create: vi.fn((dto: CreateUserDto) => ({ ...mockUser, ...dto })),
-    update: vi.fn((id: number, dto: UpdateUserDto) => 
-      id === 1 ? { ...mockUser, ...dto } : undefined
+    findAll: vi.fn(() => Promise.resolve([mockUser])),
+    findOne: vi.fn((id: string) => 
+      Promise.resolve(id === '507f1f77bcf86cd799439011' ? mockUser : null)
     ),
-    remove: vi.fn((id: number) => id === 1),
+    create: vi.fn((dto: CreateUserDto) => 
+      Promise.resolve({ ...mockUser, ...dto })
+    ),
+    update: vi.fn((id: string, dto: UpdateUserDto) => 
+      Promise.resolve(id === '507f1f77bcf86cd799439011' ? { ...mockUser, ...dto } : null)
+    ),
+    remove: vi.fn((id: string) => 
+      Promise.resolve(id === '507f1f77bcf86cd799439011')
+    ),
   };
 
   beforeEach(async () => {
@@ -52,8 +58,8 @@ describe('UsersController', () => {
   });
 
   describe('findAll', () => {
-    it('should return an array of users', () => {
-      const result = controller.findAll();
+    it('should return an array of users', async () => {
+      const result = await controller.findAll();
       
       expect(result).toEqual([mockUser]);
       expect(service.findAll).toHaveBeenCalled();
@@ -61,25 +67,25 @@ describe('UsersController', () => {
   });
 
   describe('findOne', () => {
-    it('should return a user when valid id is provided', () => {
-      const result = controller.findOne('1');
+    it('should return a user when valid id is provided', async () => {
+      const result = await controller.findOne('507f1f77bcf86cd799439011');
       expect(result).toEqual(mockUser);
-      expect(service.findOne).toHaveBeenCalledWith(1);
+      expect(service.findOne).toHaveBeenCalledWith('507f1f77bcf86cd799439011');
     });
 
-    it('should return undefined when invalid id is provided', () => {
-      expect(()=>controller.findOne('999')).toThrowError(NotFoundException);
+    it('should throw NotFoundException when invalid id is provided', async () => {
+      await expect(() => controller.findOne('invalid_id')).rejects.toThrowError(NotFoundException);
     });
   });
 
   describe('create', () => {
-    it('should create a new user', () => {
+    it('should create a new user', async () => {
       const createUserDto: CreateUserDto = {
-        email: 'new@example.com',
+        username: 'new_user',
         name: 'New User',
       };
 
-      const result = controller.create(createUserDto);
+      const result = await controller.create(createUserDto);
 
       expect(result).toEqual({ ...mockUser, ...createUserDto });
       expect(service.create).toHaveBeenCalledWith(createUserDto);
@@ -87,36 +93,36 @@ describe('UsersController', () => {
   });
 
   describe('update', () => {
-    it('should update an existing user', () => {
+    it('should update an existing user', async () => {
       const updateUserDto: UpdateUserDto = {
         name: 'Updated Name',
       };
 
-      const result = controller.update('1', updateUserDto);
+      const result = await controller.update('507f1f77bcf86cd799439011', updateUserDto);
 
       expect(result).toEqual({ ...mockUser, ...updateUserDto });
-      expect(service.update).toHaveBeenCalledWith(1, updateUserDto);
+      expect(service.update).toHaveBeenCalledWith('507f1f77bcf86cd799439011', updateUserDto);
     });
 
-    it('should return undefined when updating non-existent user', () => {
+    it('should throw NotFoundException when updating non-existent user', async () => {
       const updateUserDto: UpdateUserDto = {
         name: 'Updated Name',
       };
 
-      expect(()=>controller.update('999', updateUserDto)).toThrowError(NotFoundException);
+      await expect(() => controller.update('invalid_id', updateUserDto)).rejects.toThrowError(NotFoundException);
     });
   });
 
   describe('remove', () => {
-    it('should remove an existing user', () => {
-      const result = controller.remove('1');
+    it('should remove an existing user', async () => {
+      const result = await controller.remove('507f1f77bcf86cd799439011');
 
       expect(result).toBeTypeOf('object');
-      expect(service.remove).toHaveBeenCalledWith(1);
+      expect(service.remove).toHaveBeenCalledWith('507f1f77bcf86cd799439011');
     });
 
-    it('should return false when removing non-existent user', () => {
-      expect(()=>controller.remove('999')).toThrowError(NotFoundException);
+    it('should throw NotFoundException when removing non-existent user', async () => {
+      await expect(() => controller.remove('invalid_id')).rejects.toThrowError(NotFoundException);
     });
   });
 });
