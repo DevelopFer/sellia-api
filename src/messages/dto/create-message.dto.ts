@@ -10,5 +10,4 @@ const createMessageSchema = z.object({
 
 export class CreateMessageDto extends createZodDto(createMessageSchema) {}
 
-// Export the schema for reuse
 export { createMessageSchema };

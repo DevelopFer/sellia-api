@@ -32,6 +32,11 @@ export class MessagesController {
     return this.messagesService.getUserMessages(userId);
   }
 
+  @Get('search/:query')
+  async searchMessages(@Param('query') query: string) {
+    return this.messagesService.searchMessages(query);
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string) {
     const message = await this.messagesService.findOne(id);

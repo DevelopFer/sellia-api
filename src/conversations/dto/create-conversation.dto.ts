@@ -9,5 +9,5 @@ const createConversationSchema = z.object({
 
 export class CreateConversationDto extends createZodDto(createConversationSchema) {}
 
-// Export the schema for reuse
+
 export { createConversationSchema };

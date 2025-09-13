@@ -21,22 +21,13 @@ export class MessagesService {
       }
     });
 
-    // Update conversation's updatedAt timestamp
     await this.prisma.conversation.update({
       where: { id: createMessageDto.conversationId },
       data: { updatedAt: new Date() }
     });
 
     // Emit new message event to conversation participants via socket
-    console.log('About to emit new message event:', {
-      conversationId: createMessageDto.conversationId,
-      messageId: message.id,
-      socketGateway: !!this.socketGateway
-    });
-    
     this.socketGateway.emitNewMessage(createMessageDto.conversationId, message);
-    
-    console.log('Socket event emitted successfully');
 
     return message;
   }
@@ -101,6 +92,76 @@ export class MessagesService {
         createdAt: 'desc'
       }
     });
+  }
+
+  async searchMessages(query: string): Promise<any[]> {
+    if (!query || query.trim().length < 2) {
+      return [];
+    }
+
+    const searchTerm = query.trim();
+    
+    // Use MongoDB text search or regex for content matching
+    const messages = await this.prisma.message.findMany({
+      where: {
+        content: {
+          contains: searchTerm,
+          mode: 'insensitive'
+        }
+      },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            username: true,
+            name: true
+          }
+        },
+        conversation: {
+          select: {
+            id: true,
+            title: true,
+            isGroup: true,
+            participants: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    username: true,
+                    name: true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      take: 50 // Limit results for performance
+    });
+
+    // Transform results to include highlighted content and conversation context
+    return messages.map(message => ({
+      id: message.id,
+      content: message.content,
+      createdAt: message.createdAt,
+      sender: message.sender,
+      conversation: {
+        id: message.conversation.id,
+        title: message.conversation.title,
+        isGroup: message.conversation.isGroup,
+        participants: message.conversation.participants.map(p => p.user)
+      },
+      // Add context for highlighting
+      highlightedContent: this.highlightSearchTerm(message.content, searchTerm)
+    }));
+  }
+
+  private highlightSearchTerm(content: string, searchTerm: string): string {
+    const regex = new RegExp(`(${searchTerm})`, 'gi');
+    return content.replace(regex, '<mark>$1</mark>');
   }
 
   async update(id: string, updateMessageDto: UpdateMessageDto): Promise<Message | null> {

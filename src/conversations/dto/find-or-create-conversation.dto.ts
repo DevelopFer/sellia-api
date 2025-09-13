@@ -8,5 +8,4 @@ const findOrCreateConversationSchema = z.object({
 
 export class FindOrCreateConversationDto extends createZodDto(findOrCreateConversationSchema) {}
 
-// Export the schema for reuse
 export { findOrCreateConversationSchema };
