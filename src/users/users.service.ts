@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from '../prisma/prisma.service';
-import { User } from '../../generated/prisma';
+import { User } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
@@ -14,8 +14,65 @@ export class UsersService {
     });
   }
 
+  async loginOrRegister(createUserDto: CreateUserDto): Promise<User> {
+    
+    const existingUser = await this.findByUsername(createUserDto.username);
+    
+    if (existingUser) {
+      if (createUserDto.name && createUserDto.name !== existingUser.name) {
+        return this.prisma.user.update({
+          where: { id: existingUser.id },
+          data: { name: createUserDto.name },
+        });
+      }
+      return existingUser;
+    }
+    
+    return this.create(createUserDto);
+  }
+
   async findAll(): Promise<User[]> {
     return this.prisma.user.findMany();
+  }
+
+  async findAllPaginated(page: number, limit: number): Promise<{
+    users: User[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+      hasNext: boolean;
+      hasPrev: boolean;
+    }
+  }> {
+    const skip = (page - 1) * limit;
+    
+    // Get total count for pagination metadata
+    const total = await this.prisma.user.count();
+    
+    // Get paginated users
+    const users = await this.prisma.user.findMany({
+      skip,
+      take: limit,
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      users,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      }
+    };
   }
 
   async findOne(id: string): Promise<User | null> {
