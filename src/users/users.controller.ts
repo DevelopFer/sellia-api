@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, NotFoundException, Query } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -12,9 +12,19 @@ export class UsersController {
     return this.usersService.create(createUserDto);
   }
 
+  @Post('login-or-register')
+  async loginOrRegister(@Body() createUserDto: CreateUserDto) {
+    return this.usersService.loginOrRegister(createUserDto);
+  }
+
   @Get()
-  async findAll() {
-    return this.usersService.findAll();
+  async findAll(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10'
+  ) {
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 10;
+    return this.usersService.findAllPaginated(pageNum, limitNum);
   }
 
   @Get(':id')
