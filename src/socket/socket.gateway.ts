@@ -180,11 +180,20 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // Method to emit new message to conversation participants
   public emitNewMessage(conversationId: string, message: any) {
-    this.server.to(`conversation:${conversationId}`).emit('message:new', {
+    console.log('SocketGateway.emitNewMessage called:', {
+      conversationId,
+      messageId: message.id,
+      connectedClients: this.server.sockets.sockets.size
+    });
+    
+    // Emit to all connected users - let the frontend handle filtering
+    this.server.emit('message:new', {
       conversationId,
       message,
       timestamp: new Date().toISOString(),
     });
+    
+    console.log('Message event emitted to all connected clients');
   }
 
   // Method to get online users count
