@@ -14,8 +14,6 @@ describe('Users Simple (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    
-    // Apply the same global pipes as in main.ts
     app.useGlobalPipes(new ZodValidationPipe());
     app.setGlobalPrefix('api');
     
@@ -46,9 +44,9 @@ describe('Users Simple (e2e)', () => {
       };
 
       const response = await request(app.getHttpServer())
-        .post('/api/users')
-        .send(newUser)
-        .expect(201);
+      .post('/api/users')
+      .send(newUser)
+      .expect(201);
 
       expect(response.body).toHaveProperty('id');
       expect(response.body.username).toBe(newUser.username);

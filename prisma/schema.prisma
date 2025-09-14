@@ -18,6 +18,7 @@ model User {
   username      String                 @unique
   name          String?
   isOnline      Boolean                @default(false)
+  isBot         Boolean                @default(false)
   createdAt     DateTime               @default(now())
   updatedAt     DateTime               @updatedAt
   
