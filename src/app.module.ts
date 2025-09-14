@@ -8,6 +8,7 @@ import { UsernameModule } from './username/username.module';
 import { ConversationsModule } from './conversations/conversations.module';
 import { MessagesModule } from './messages/messages.module';
 import { SocketModule } from './socket/socket.module';
+import { UserconversationsModule } from './userconversations/userconversations.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -22,6 +23,7 @@ import configuration from './config/configuration';
     ConversationsModule,
     MessagesModule,
     SocketModule,
+    UserconversationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

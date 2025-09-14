@@ -7,7 +7,7 @@ WORKDIR /usr/src/app
 
 COPY package*.json ./
 
-RUN npm install \
+RUN npm install --legacy-peer-deps \
     && npm install @nestjs/config class-validator class-transformer \
     && npm install --save-dev prisma
 

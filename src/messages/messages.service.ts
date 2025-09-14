@@ -3,16 +3,22 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SocketGateway } from '../socket/socket.gateway';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
-import type { Message } from '../../generated/prisma';
+import type { Message } from '@prisma/client';
+import { UserconversationsService } from 'src/userconversations/userconversations.service';
+import UserBot from 'src/openAI/userbot';
+import { ChatbotService } from 'src/openAI/chatbot';
 
 @Injectable()
 export class MessagesService {
   constructor(
     private prisma: PrismaService,
-    private socketGateway: SocketGateway
+    private socketGateway: SocketGateway,
+    private userConversationsService: UserconversationsService,
+    private chatbotService: ChatbotService
   ) {}
 
   async create(createMessageDto: CreateMessageDto): Promise<Message> {
+    
     const message = await this.prisma.message.create({
       data: createMessageDto,
       include: {
@@ -26,8 +32,10 @@ export class MessagesService {
       data: { updatedAt: new Date() }
     });
 
-    // Emit new message event to conversation participants via socket
     this.socketGateway.emitNewMessage(createMessageDto.conversationId, message);
+    
+    const userbot = new UserBot(createMessageDto, this.userConversationsService, this.prisma, this.socketGateway, this.chatbotService);
+    userbot.replyToMessage();
 
     return message;
   }

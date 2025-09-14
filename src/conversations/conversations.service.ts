@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { UpdateConversationDto } from './dto/update-conversation.dto';
 import { FindOrCreateConversationDto } from './dto/find-or-create-conversation.dto';
-import type { Conversation, UserConversation } from '../../generated/prisma';
+import type { Conversation, UserConversation } from '@prisma/client';
 
 @Injectable()
 export class ConversationsService {
