@@ -51,3 +51,5 @@ docker-compose.override.yml
 tmp/
 temp/
 /generated/prisma
+.env.development
+.env.test
