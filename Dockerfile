@@ -1,28 +1,62 @@
-FROM node:18-alpine
+# Multi-stage build for production optimization
+FROM node:20-alpine AS base
 
-# Install netcat for database health checks
-RUN apk add --no-cache netcat-openbsd
+# Install dependencies needed for Prisma and native packages
+RUN apk add --no-cache \
+    openssl \
+    libc6-compat
 
+# Development stage
+FROM base AS development
 WORKDIR /usr/src/app
 
+# Copy package files
 COPY package*.json ./
+COPY prisma ./prisma/
 
-RUN npm install --legacy-peer-deps \
-    && npm install @nestjs/config class-validator class-transformer \
-    && npm install --save-dev prisma
+# Install all dependencies (including dev dependencies)
+RUN npm ci
 
-COPY prisma ./prisma
-
+# Generate Prisma client
 RUN npx prisma generate
 
+# Copy source code
 COPY . .
 
+# Build the application
+RUN npm run build
+
+# Production stage
+FROM base AS production
+WORKDIR /usr/src/app
+
+# Copy package files
+COPY package*.json ./
+COPY prisma ./prisma/
+
+# Install only production dependencies
+RUN npm ci --only=production && npm cache clean --force
+
+# Generate Prisma client for production
+RUN npx prisma generate
+
+# Copy built application from development stage
+COPY --from=development /usr/src/app/dist ./dist
+
+# Create non-root user for security
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nestjs -u 1001
+
+# Change ownership of the app directory
+RUN chown -R nestjs:nodejs /usr/src/app
+USER nestjs
+
+# Expose port
 EXPOSE 3000
 
-COPY ./docker/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD node --version || exit 1
 
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-
-ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
-
-CMD ["npm", "run", "start:dev"]
+# Start the application
+CMD ["node", "dist/main.js"]
