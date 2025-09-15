@@ -12,6 +12,7 @@ import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { UsersService } from '../users/users.service';
 import { ConfigService } from '@nestjs/config';
+import { UserEventsService } from '../events/user-events.service';
 
 @WebSocketGateway({
   cors: {
@@ -38,6 +39,7 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, 
   constructor(
     private readonly usersService: UsersService,
     private readonly configService: ConfigService,
+    private readonly userEventsService: UserEventsService,
   ) {}
 
   afterInit(server: Server) {
@@ -60,8 +62,12 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, 
     
     this.logger.log('Socket.IO server initialized with CORS origins:', allowedOrigins);
     
-    
     this.startPeriodicStatusSync();
+    
+    // Listen for user events
+    this.userEventsService.on('user:joined', (user) => {
+      this.broadcastUserJoined(user);
+    });
   }
 
   private startPeriodicStatusSync() {
@@ -323,6 +329,22 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, 
     this.server.to(roomName).emit('message:new', {
       conversationId,
       message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  public broadcastUserJoined(user: any) {
+    this.logger.log(`Broadcasting new user joined: ${user.username} (${user.id})`);
+    
+    this.server.emit('user:joined', {
+      user: {
+        id: user.id,
+        username: user.username,
+        name: user.name,
+        isOnline: user.isOnline || false,
+        isBot: user.isBot || false,
+        avatar: user.avatar,
+      },
       timestamp: new Date().toISOString(),
     });
   }

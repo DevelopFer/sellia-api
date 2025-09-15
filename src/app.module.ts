@@ -10,6 +10,7 @@ import { MessagesModule } from './messages/messages.module';
 import { SocketModule } from './socket/socket.module';
 import { UserconversationsModule } from './userconversations/userconversations.module';
 import { HealthModule } from './health/health.module';
+import { EventsModule } from './events/events.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -18,6 +19,7 @@ import configuration from './config/configuration';
       isGlobal: true,
       load: [configuration],
     }),
+    EventsModule,
     PrismaModule,
     UsersModule,
     UsernameModule,
