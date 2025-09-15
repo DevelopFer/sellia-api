@@ -32,6 +32,8 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, 
 
   private logger = new Logger('SocketGateway');
   private userSockets = new Map<string, string>(); // userId -> socketId
+  private socketUsers = new Map<string, string>(); // socketId -> userId
+  private disconnectTimeouts = new Map<string, NodeJS.Timeout>(); // userId -> timeout
 
   constructor(
     private readonly usersService: UsersService,
@@ -58,6 +60,61 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, 
     };
     
     this.logger.log('Socket.IO server initialized with CORS origins:', allowedOrigins);
+    
+    // Start periodic status sync to ensure consistency
+    this.startPeriodicStatusSync();
+  }
+
+  private startPeriodicStatusSync() {
+    // Sync every 30 seconds to catch any inconsistencies
+    setInterval(async () => {
+      try {
+        await this.syncStatusConsistency();
+      } catch (error) {
+        this.logger.error('Error in periodic status sync:', error);
+      }
+    }, 30000);
+  }
+
+  private async syncStatusConsistency() {
+    const socketUserIds = Array.from(this.userSockets.keys());
+    const dbOnlineUsers = await this.usersService.findAllOnline();
+    const dbOnlineUserIds = dbOnlineUsers.filter(user => !user.isBot).map(user => user.id);
+    
+    // Find users who are in DB as online but not in socket map
+    const dbOnlineNotSocket = dbOnlineUserIds.filter(userId => !socketUserIds.includes(userId));
+    
+    // Find users who are in socket map but not in DB as online  
+    const socketNotDbOnline = socketUserIds.filter(userId => !dbOnlineUserIds.includes(userId));
+    
+    if (dbOnlineNotSocket.length > 0) {
+      this.logger.warn(`Users marked online in DB but no socket: ${dbOnlineNotSocket.join(', ')}`);
+      // Mark them offline in DB since they don't have active sockets
+      for (const userId of dbOnlineNotSocket) {
+        await this.usersService.updateUserStatus(userId, false);
+        this.server.emit('user:status_changed', {
+          userId,
+          isOnline: false,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    }
+    
+    if (socketNotDbOnline.length > 0) {
+      this.logger.warn(`Users with sockets but not marked online in DB: ${socketNotDbOnline.join(', ')}`);
+      // Mark them online in DB since they have active sockets
+      for (const userId of socketNotDbOnline) {
+        const user = await this.usersService.findOne(userId);
+        if (user && !user.isBot) {
+          await this.usersService.updateUserStatus(userId, true);
+          this.server.emit('user:status_changed', {
+            userId,
+            isOnline: true,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
+    }
   }
 
   
@@ -70,13 +127,29 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, 
   
   async handleDisconnect(client: Socket) {
     this.logger.log(`Client disconnected: ${client.id}`);
-    /* Find user by socket ID and mark them offline */
-    for (const [userId, socketId] of this.userSockets.entries()) {
-      if (socketId === client.id) {
-        await this.setUserOffline(userId);
-        this.userSockets.delete(userId);
-        break;
-      }
+    
+    // Find user by socket ID
+    const userId = this.socketUsers.get(client.id);
+    if (userId) {
+      this.logger.log(`User ${userId} socket ${client.id} disconnected`);
+      
+      // Remove the socket mappings
+      this.userSockets.delete(userId);
+      this.socketUsers.delete(client.id);
+      
+      // Set a delayed offline timeout to handle browser reloads gracefully
+      const timeout = setTimeout(async () => {
+        // Check if user has reconnected with a new socket
+        if (!this.userSockets.has(userId)) {
+          this.logger.log(`User ${userId} still offline after grace period, marking offline`);
+          await this.setUserOffline(userId);
+        } else {
+          this.logger.log(`User ${userId} reconnected during grace period, keeping online`);
+        }
+        this.disconnectTimeouts.delete(userId);
+      }, 5000); // 5 second grace period
+      
+      this.disconnectTimeouts.set(userId, timeout);
     }
   }
 
@@ -89,15 +162,37 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, 
     const { userId } = data;
     
     try {
-      this.userSockets.set(userId, client.id);
-      await this.usersService.updateUserStatus(userId, true);
-      this.server.emit('user:status_changed', {
-        userId,
-        isOnline: true,
-        timestamp: new Date().toISOString(),
-      });
+      // Get user info to check if it's a bot
+      const user = await this.usersService.findOne(userId);
+      if (!user) {
+        client.emit('user:error', { message: 'User not found' });
+        return;
+      }
 
-      this.logger.log(`User ${userId} is now online`);
+      // Clear any pending disconnect timeout for this user
+      const existingTimeout = this.disconnectTimeouts.get(userId);
+      if (existingTimeout) {
+        clearTimeout(existingTimeout);
+        this.disconnectTimeouts.delete(userId);
+        this.logger.log(`Cleared disconnect timeout for user ${userId} - reconnected`);
+      }
+
+      // Update socket mappings
+      this.userSockets.set(userId, client.id);
+      this.socketUsers.set(client.id, userId);
+      
+      // Only update database status for non-bot users
+      if (!user.isBot) {
+        await this.usersService.updateUserStatus(userId, true);
+        // Broadcast status change to all other connected clients
+        client.broadcast.emit('user:status_changed', {
+          userId,
+          isOnline: true,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      this.logger.log(`User ${userId} (${user.isBot ? 'bot' : 'human'}) is now online`);
       
       client.emit('user:online_confirmed', { userId, isOnline: true });
       
@@ -117,9 +212,21 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, 
     const { userId } = data;
     
     try {
-      await this.setUserOffline(userId);
+      // Remove socket mappings
       this.userSockets.delete(userId);
-      this.logger.log(`User ${userId} is now offline`);
+      this.socketUsers.delete(client.id);
+      
+      // Clear any pending disconnect timeout
+      const existingTimeout = this.disconnectTimeouts.get(userId);
+      if (existingTimeout) {
+        clearTimeout(existingTimeout);
+        this.disconnectTimeouts.delete(userId);
+      }
+      
+      // Set user offline immediately (no grace period for explicit offline)
+      await this.setUserOffline(userId);
+      
+      this.logger.log(`User ${userId} explicitly set offline`);
       client.emit('user:offline_confirmed', { userId, isOnline: false });
     } catch (error) {
       this.logger.error(`Error setting user ${userId} offline:`, error);
@@ -196,12 +303,25 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, 
 
   private async setUserOffline(userId: string) {
     try {
-      await this.usersService.updateUserStatus(userId, false);
-      this.server.emit('user:status_changed', {
-        userId,
-        isOnline: false,
-        timestamp: new Date().toISOString(),
-      });
+      // Get user info to check if it's a bot
+      const user = await this.usersService.findOne(userId);
+      if (!user) {
+        this.logger.warn(`User ${userId} not found when setting offline`);
+        return;
+      }
+
+      // Only update database status for non-bot users
+      if (!user.isBot) {
+        await this.usersService.updateUserStatus(userId, false);
+        // Broadcast status change to all connected clients
+        this.server.emit('user:status_changed', {
+          userId,
+          isOnline: false,
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      this.logger.log(`User ${userId} (${user.isBot ? 'bot' : 'human'}) is now offline`);
       
     } catch (error) {
       this.logger.error(`Error setting user ${userId} offline:`, error);
@@ -251,21 +371,41 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, 
     };
   }
 
+  // Cleanup method for timeouts
+  private cleanupTimeouts() {
+    for (const [userId, timeout] of this.disconnectTimeouts.entries()) {
+      clearTimeout(timeout);
+    }
+    this.disconnectTimeouts.clear();
+  }
+
   @SubscribeMessage('request:online_users')
   async handleRequestOnlineUsers(
     @ConnectedSocket() client: Socket,
   ) {
     try {
-      // Get all currently online user IDs
-      const onlineUserIds = Array.from(this.userSockets.keys());
+      // Get users who have active socket connections
+      const socketOnlineUserIds = Array.from(this.userSockets.keys());
       
-      // Send current online status to the requesting client
+      // ALSO get users who are marked online in the database
+      // This prevents desync during browser reloads
+      const dbOnlineUsers = await this.usersService.findAllOnline();
+      const dbOnlineUserIds = dbOnlineUsers
+        .filter(user => !user.isBot) // Exclude bots from socket-based status
+        .map(user => user.id);
+      
+      // Combine both sources and remove duplicates
+      const allOnlineUserIds = Array.from(new Set([...socketOnlineUserIds, ...dbOnlineUserIds]));
+      
+      // Send comprehensive online status to the requesting client
       client.emit('online_users:current', {
-        userIds: onlineUserIds,
+        userIds: allOnlineUserIds,
+        socketConnected: socketOnlineUserIds,
+        dbOnline: dbOnlineUserIds,
         timestamp: new Date().toISOString(),
       });
       
-      this.logger.log(`Sent current online users to client: ${onlineUserIds.length} users online`);
+      this.logger.log(`Sent online users - Socket: ${socketOnlineUserIds.length}, DB: ${dbOnlineUserIds.length}, Total: ${allOnlineUserIds.length}`);
       
     } catch (error) {
       this.logger.error('Error sending online users:', error);

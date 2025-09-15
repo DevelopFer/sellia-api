@@ -122,5 +122,12 @@ export class UsersService {
       return null;
     }
   }
+
+  async findAllOnline(): Promise<User[]> {
+    return this.prisma.user.findMany({
+      where: { isOnline: true },
+      orderBy: { updatedAt: 'desc' }
+    });
+  }
     
 }
