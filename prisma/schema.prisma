@@ -54,7 +54,7 @@ model UserConversation {
 model Message {
   id             String       @id @default(auto()) @map("_id") @db.ObjectId
   content        String
-  messageType    String       @default("text") // "text", "image", "file", etc.
+  messageType    String       @default("text") //"text", "image", "file", etc.
   senderId       String       @db.ObjectId
   conversationId String       @db.ObjectId
   createdAt      DateTime     @default(now())

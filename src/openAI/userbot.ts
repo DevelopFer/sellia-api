@@ -4,7 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SocketGateway } from "src/socket/socket.gateway";
 import { ChatbotService, ChatMessage } from "./chatbot";
 
-// Define the complete User interface with isBot
+
 interface CompleteUser {
     id: string;
     username: string;
@@ -148,8 +148,8 @@ export default class UserBot {
         } catch (error) {
             
             console.error("Error generating AI response:", error);
-            
-            // Fallback to character-specific responses if AI fails
+
+            /** Fallback to character-specific responses if AI fails */
             const botName = this.botParticipant?.name || this.botParticipant?.username || 'Assistant';
             const fallbackResponses = [
                 `As ${botName}, I'm here to continue our conversation! What would you like to discuss?`,

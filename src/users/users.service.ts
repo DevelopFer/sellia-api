@@ -48,10 +48,10 @@ export class UsersService {
   }> {
     const skip = (page - 1) * limit;
     
-    // Get total count for pagination metadata
+    
     const total = await this.prisma.user.count();
     
-    // Get paginated users
+    
     const users = await this.prisma.user.findMany({
       skip,
       take: limit,
@@ -106,7 +106,7 @@ export class UsersService {
       });
       return true;
     } catch (error) {
-      // Handle case where user doesn't exist
+      
       return false;
     }
   }
@@ -118,7 +118,7 @@ export class UsersService {
         data: { isOnline },
       });
     } catch (error) {
-      // Handle case where user doesn't exist
+      
       return null;
     }
   }

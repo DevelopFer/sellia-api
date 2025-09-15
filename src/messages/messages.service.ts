@@ -109,7 +109,9 @@ export class MessagesService {
 
     const searchTerm = query.trim();
     
-    // Use MongoDB text search or regex for content matching
+    /**
+     * Search messages by content using case-insensitive matching.
+     */
     const messages = await this.prisma.message.findMany({
       where: {
         content: {
@@ -147,10 +149,12 @@ export class MessagesService {
       orderBy: {
         createdAt: 'desc'
       },
-      take: 50 // Limit results for performance
+      take: 50
     });
 
-    // Transform results to include highlighted content and conversation context
+    /**
+     * Here we map the messages to include highlighted content and conversation context.
+     */
     return messages.map(message => ({
       id: message.id,
       content: message.content,
@@ -162,7 +166,7 @@ export class MessagesService {
         isGroup: message.conversation.isGroup,
         participants: message.conversation.participants.map(p => p.user)
       },
-      // Add context for highlighting
+      
       highlightedContent: this.highlightSearchTerm(message.content, searchTerm)
     }));
   }

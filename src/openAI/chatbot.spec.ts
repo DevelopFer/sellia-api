@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi, MockedFunction } from 
 import { ChatbotService, ChatMessage, ChatCompletionOptions } from './chatbot';
 import OpenAI from 'openai';
 
-// Mock the OpenAI module
+
 vi.mock('openai');
 
 describe('ChatbotService', () => {
@@ -14,15 +14,15 @@ describe('ChatbotService', () => {
   const originalEnv = process.env;
 
   beforeEach(async () => {
-    // Reset environment variables
+
     vi.resetModules();
     process.env = { ...originalEnv };
 
-    // Set up required environment variable
+
     process.env.OPENAI_API_KEY = 'test-api-key';
     process.env.OPENAI_MODEL = 'gpt-4o-mini';
 
-    // Create mock OpenAI instance
+
     mockCreate = vi.fn();
     mockOpenAI = {
       chat: {
@@ -32,7 +32,7 @@ describe('ChatbotService', () => {
       },
     };
 
-    // Mock the OpenAI constructor
+    
     vi.mocked(OpenAI).mockImplementation(() => mockOpenAI);
 
     const module: TestingModule = await Test.createTestingModule({
@@ -325,11 +325,11 @@ describe('ChatbotService', () => {
         .mockResolvedValueOnce(responses[1] as any)
         .mockResolvedValueOnce(responses[2] as any);
 
-      // Start conversation
+
       const response1 = await service.generateSimpleResponse('Hello');
       expect(response1).toBe('Hello! How can I help you?');
 
-      // Continue conversation
+      
       let history: ChatMessage[] = [
         { role: 'system', content: 'You are a helpful assistant.' },
         { role: 'user', content: 'Hello' },
@@ -342,7 +342,7 @@ describe('ChatbotService', () => {
       );
       expect(response2).toBe('Sure, I can help with that!');
 
-      // Add to history and continue
+      
       history = [
         ...history,
         { role: 'user', content: 'Can you help me with coding?' },

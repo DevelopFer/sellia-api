@@ -17,7 +17,7 @@ export class HealthController {
   @Get('db')
   async checkDatabase() {
     try {
-      // Try to connect and count users
+      /** Try to connect and count users */
       const userCount = await this.prisma.user.count();
       const conversationCount = await this.prisma.conversation.count();
       const messageCount = await this.prisma.message.count();
