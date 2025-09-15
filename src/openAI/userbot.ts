@@ -40,6 +40,7 @@ export default class UserBot {
             return;
         }
         
+        
         console.log("Bot participant found, preparing to reply...");
         const newMessage = await this.keepTheConversationGoing();
         console.log("Generated bot reply:", newMessage);
