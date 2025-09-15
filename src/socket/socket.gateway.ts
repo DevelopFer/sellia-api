@@ -250,4 +250,26 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, 
       socketIds: Array.from(room)
     };
   }
+
+  @SubscribeMessage('request:online_users')
+  async handleRequestOnlineUsers(
+    @ConnectedSocket() client: Socket,
+  ) {
+    try {
+      // Get all currently online user IDs
+      const onlineUserIds = Array.from(this.userSockets.keys());
+      
+      // Send current online status to the requesting client
+      client.emit('online_users:current', {
+        userIds: onlineUserIds,
+        timestamp: new Date().toISOString(),
+      });
+      
+      this.logger.log(`Sent current online users to client: ${onlineUserIds.length} users online`);
+      
+    } catch (error) {
+      this.logger.error('Error sending online users:', error);
+      client.emit('user:error', { message: 'Failed to get online users' });
+    }
+  }
 }
