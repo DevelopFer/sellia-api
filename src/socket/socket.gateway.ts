@@ -38,9 +38,15 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, 
   // Override the server with proper CORS configuration
   afterInit(server: Server) {
     const corsOrigin = this.configService.get<string>('cors.origin');
+    const defaultOrigins = [
+      'http://localhost:3002',
+      'http://localhost:3000',
+      'https://sellia-client-3zqr5.ondigitalocean.app'
+    ];
+    
     const allowedOrigins = corsOrigin 
       ? corsOrigin.split(',').map(origin => origin.trim())
-      : ['http://localhost:3002'];
+      : defaultOrigins;
       
     server.engine.opts.cors = {
       origin: allowedOrigins,

@@ -9,6 +9,7 @@ import { ConversationsModule } from './conversations/conversations.module';
 import { MessagesModule } from './messages/messages.module';
 import { SocketModule } from './socket/socket.module';
 import { UserconversationsModule } from './userconversations/userconversations.module';
+import { HealthModule } from './health/health.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -24,6 +25,7 @@ import configuration from './config/configuration';
     MessagesModule,
     SocketModule,
     UserconversationsModule,
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

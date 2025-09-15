@@ -17,14 +17,23 @@ async function bootstrap() {
   
   // Enable CORS with proper configuration
   const corsOrigin = configService.get<string>('cors.origin');
+  const defaultOrigins = [
+    'http://localhost:3002',
+    'http://localhost:3000',
+    'https://sellia-client-3zqr5.ondigitalocean.app'
+  ];
+  
   const allowedOrigins = corsOrigin 
     ? corsOrigin.split(',').map(origin => origin.trim())
-    : ['http://localhost:3002'];
+    : defaultOrigins;
+    
+  console.log('CORS Origins:', allowedOrigins);
     
   app.enableCors({
     origin: allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
   
   // Use Socket.IO adapter
