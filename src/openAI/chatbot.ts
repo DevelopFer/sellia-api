@@ -18,6 +18,7 @@ export class ChatbotService {
 
   constructor() {
     const apiKey = process.env.OPENAI_API_KEY;
+    console.log("OpenAI API Key:", apiKey ? "Configured" : "Not Configured");
     if (!apiKey) {
       throw new Error('OPENAI_API_KEY environment variable is required');
     }

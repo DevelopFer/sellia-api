@@ -49,16 +49,18 @@ export default class UserBot {
             return;
         }
 
-        await this.prisma.message.create({
+        const botMessage = await this.prisma.message.create({
             data: newMessage
         });
+
+        console.log("Bot message created:", botMessage);
 
         await this.prisma.conversation.update({
             where: { id: this.createMessageDto.conversationId },
             data: { updatedAt: new Date() }
         });
 
-        this.socketGateway.emitNewMessage(this.createMessageDto.conversationId, newMessage);
+        this.socketGateway.emitNewMessage(this.createMessageDto.conversationId, botMessage);
 
     }
 
@@ -72,15 +74,26 @@ export default class UserBot {
     }
 
     private getChatbotPrompt(): string {
-        return "You are a conversational user-bot integrated into a chat demo. Your role is to always continue the conversation in a FRIENDLY, RESPECTFUL, and SAFE manner.\n\
-            Rules:\n\
-            Respond as if you were a human participant but limit references to personal data (do not invent personal information about the user).\n\
-            Keep your tone cordial and brief when no further detail is needed; expand when it seems useful.\n\
-            Do not provide dangerous instructions or facilitate illegal activities.\n\
-            If the user requests a technical or sensitive instruction, respond with a warning and offer safe alternatives.\n\
-            Adapt your level of detail to the user’s text (if the user writes briefly, respond briefly).\n\
-            Do not fully mention that you are a \"bot\" (you may say things like “sure!” or “with pleasure” if appropriate), but acknowledge you are a demo assistant if explicitly asked.\n\n\
-            When you receive the user’s latest message, respond while considering the conversation history (up to N previous messages).";
+        const botName = this.botParticipant?.name || this.botParticipant?.username || 'Assistant';
+        const botUsername = this.botParticipant?.username || '';
+        
+        return `You are ${botName} (${botUsername}), a famous character/celebrity participating in this chat conversation. Your role is to respond authentically as this character while being FRIENDLY, RESPECTFUL, and SAFE.
+        Character Identity Rules:
+        - Always stay in character as ${botName}
+        - Use the personality, mannerisms, and speaking style that ${botName} is known for
+        - Reference your character's background, experiences, and relationships when relevant
+        - If you're a superhero character, you can reference your powers, missions, and alter ego when appropriate
+        - If you're another type of celebrity, reference your profession, achievements, or known traits
+        - Keep responses authentic to your character while maintaining a conversational tone
+        Conversation Rules:
+        - Respond as if you were the actual ${botName} participating in a chat
+        - Keep your tone consistent with your character but friendly and engaging
+        - Adapt your level of detail to match the user's message length
+        - Do not break character or mention that you are an AI/bot
+        - If asked directly about being AI, stay in character and respond as the celebrity would
+        - Do not provide dangerous instructions or facilitate illegal activities
+        - Keep the conversation appropriate and safe
+        Remember: You are ${botName}, not an assistant. Respond as this character would in a casual chat conversation.`;
     }
 
     private async getLatestConversationMessages(){
@@ -94,7 +107,7 @@ export default class UserBot {
             orderBy: {
                 createdAt: 'desc'
             },
-            take: 10 // Get last 10 messages for context
+            take: 10
         });
 
         conversationMessages.reverse();
@@ -136,13 +149,14 @@ export default class UserBot {
             
             console.error("Error generating AI response:", error);
             
-            // Fallback to simple responses if AI fails
+            // Fallback to character-specific responses if AI fails
+            const botName = this.botParticipant?.name || this.botParticipant?.username || 'Assistant';
             const fallbackResponses = [
-                "I'm here to help! How can I assist you?",
-                "That's interesting! Tell me more.",
-                "I understand. Is there anything specific you'd like to know?",
-                "Thanks for sharing that with me.",
-                "I'm listening. Please continue."
+                `As ${botName}, I'm here to continue our conversation! What would you like to discuss?`,
+                `Interesting! Tell me more about that.`,
+                `I understand. Is there anything specific you'd like to know about my experiences?`,
+                `Thanks for sharing that with me. What's on your mind?`,
+                `I'm listening. Please continue - this is fascinating!`
             ];
             
             const fallbackResponse = fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
@@ -156,4 +170,5 @@ export default class UserBot {
 
             return response;
         }
-    }};
+    }
+}
