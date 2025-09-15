@@ -1,0 +1,39 @@
+# Single-stage production build for Digital Ocean
+FROM node:20-alpine
+
+# Install dependencies needed for Prisma and native packages
+RUN apk add --no-cache \
+    openssl \
+    libc6-compat
+
+WORKDIR /usr/src/app
+
+# Copy package files first (for better caching)
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci --omit=dev
+
+# Copy Prisma schema
+COPY prisma ./prisma/
+
+# Generate Prisma client
+RUN npx prisma generate
+
+# Copy source code
+COPY . .
+
+# Install dev dependencies needed for build
+RUN npm ci
+
+# Build the application
+RUN npm run build
+
+# Remove dev dependencies after build
+RUN npm prune --omit=dev
+
+# Expose port
+EXPOSE 3000
+
+# Start the application
+CMD ["node", "dist/src/main.js"]
