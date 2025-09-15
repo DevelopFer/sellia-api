@@ -135,18 +135,27 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, 
     @ConnectedSocket() client: Socket,
   ) {
     const { conversationId, userId } = data;
+    const roomName = `conversation:${conversationId}`;
+    
     try {
-      await client.join(`conversation:${conversationId}`);
-      this.logger.log(`User ${userId} joined conversation ${conversationId}`);
+      await client.join(roomName);
+      
+      // Get room info after joining
+      const roomInfo = this.getRoomInfo(conversationId);
+      this.logger.log(`User ${userId} (socket: ${client.id}) joined conversation ${conversationId}. Room now has ${roomInfo.clientCount} clients.`);
 
-      client.to(`conversation:${conversationId}`).emit('conversation:user_joined', {
+      // Notify other users in the conversation
+      client.to(roomName).emit('conversation:user_joined', {
         conversationId,
         userId,
         timestamp: new Date().toISOString(),
       });
       
-
-      client.emit('conversation:joined', { conversationId });
+      // Confirm to the joining user
+      client.emit('conversation:joined', { 
+        conversationId,
+        roomInfo: roomInfo
+      });
       
     } catch (error) {
       this.logger.error(`Error joining conversation ${conversationId}:`, error);
@@ -162,11 +171,17 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, 
     @ConnectedSocket() client: Socket,
   ) {
     const { conversationId, userId } = data;
+    const roomName = `conversation:${conversationId}`;
     
     try {
-      await client.leave(`conversation:${conversationId}`);
-      this.logger.log(`User ${userId} left conversation ${conversationId}`);
-      client.to(`conversation:${conversationId}`).emit('conversation:user_left', {
+      await client.leave(roomName);
+      
+      // Get room info after leaving
+      const roomInfo = this.getRoomInfo(conversationId);
+      this.logger.log(`User ${userId} (socket: ${client.id}) left conversation ${conversationId}. Room now has ${roomInfo.clientCount} clients.`);
+      
+      // Notify remaining users in the conversation
+      client.to(roomName).emit('conversation:user_left', {
         conversationId,
         userId,
         timestamp: new Date().toISOString(),
@@ -196,7 +211,18 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, 
 
 
   public emitNewMessage(conversationId: string, message: any) {
-    this.server.emit('message:new', {
+    const roomName = `conversation:${conversationId}`;
+    const room = this.server.sockets.adapter.rooms.get(roomName);
+    
+    if (!room || room.size === 0) {
+      this.logger.warn(`No clients in conversation room: ${roomName}`);
+      return;
+    }
+    
+    this.logger.log(`Emitting message to ${room.size} clients in room: ${roomName}`);
+    
+    // Emit to specific conversation room only
+    this.server.to(roomName).emit('message:new', {
       conversationId,
       message,
       timestamp: new Date().toISOString(),
@@ -209,5 +235,19 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, 
 
   public isUserOnline(userId: string): boolean {
     return this.userSockets.has(userId);
+  }
+
+  public getRoomInfo(conversationId: string): { clientCount: number; socketIds: string[] } {
+    const roomName = `conversation:${conversationId}`;
+    const room = this.server.sockets.adapter.rooms.get(roomName);
+    
+    if (!room) {
+      return { clientCount: 0, socketIds: [] };
+    }
+    
+    return {
+      clientCount: room.size,
+      socketIds: Array.from(room)
+    };
   }
 }
