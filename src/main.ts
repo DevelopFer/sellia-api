@@ -15,8 +15,17 @@ async function bootstrap() {
   // Enable Zod validation pipes
   app.useGlobalPipes(new ZodValidationPipe());
   
-  // Enable CORS
-  app.enableCors();
+  // Enable CORS with proper configuration
+  const corsOrigin = configService.get<string>('cors.origin');
+  const allowedOrigins = corsOrigin 
+    ? corsOrigin.split(',').map(origin => origin.trim())
+    : ['http://localhost:3002'];
+    
+  app.enableCors({
+    origin: allowedOrigins,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    credentials: true,
+  });
   
   // Use Socket.IO adapter
   app.useWebSocketAdapter(new IoAdapter(app));

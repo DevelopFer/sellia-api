@@ -4,28 +4,52 @@ import {
   SubscribeMessage,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
   MessageBody,
   ConnectedSocket,
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { UsersService } from '../users/users.service';
+import { ConfigService } from '@nestjs/config';
 
 @WebSocketGateway({
   cors: {
-    origin: ['http://localhost:3003', 'http://localhost:3000'], // Allow frontend origins
+    origin: (origin, callback) => {
+      // This will be dynamically set in the constructor
+      callback(null, true);
+    },
     methods: ['GET', 'POST'],
     credentials: true,
   },
 })
-export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
   @WebSocketServer()
   server: Server;
 
   private logger = new Logger('SocketGateway');
   private userSockets = new Map<string, string>(); // userId -> socketId
 
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly configService: ConfigService,
+  ) {}
+
+  // Override the server with proper CORS configuration
+  afterInit(server: Server) {
+    const corsOrigin = this.configService.get<string>('cors.origin');
+    const allowedOrigins = corsOrigin 
+      ? corsOrigin.split(',').map(origin => origin.trim())
+      : ['http://localhost:3002'];
+      
+    server.engine.opts.cors = {
+      origin: allowedOrigins,
+      methods: ['GET', 'POST'],
+      credentials: true,
+    };
+    
+    this.logger.log('Socket.IO server initialized with CORS origins:', allowedOrigins);
+  }
 
   // Handle new socket connections
   async handleConnection(client: Socket) {

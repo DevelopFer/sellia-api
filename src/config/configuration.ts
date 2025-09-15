@@ -9,7 +9,7 @@ export default () => ({
     model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
   },
   cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3002',
+    origin: process.env.CORS_ORIGIN || 'http://localhost:3002,http://localhost:3000',
   },
   jwt: {
     secret: process.env.JWT_SECRET || 'development-secret-change-in-production',
