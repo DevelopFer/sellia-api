@@ -50,7 +50,11 @@ export default class UserBot {
         }
 
         const botMessage = await this.prisma.message.create({
-            data: newMessage
+            data: newMessage,
+            include: {
+                sender: true,
+                conversation: true
+            }
         });
 
         console.log("Bot message created:", botMessage);
@@ -60,7 +64,9 @@ export default class UserBot {
             data: { updatedAt: new Date() }
         });
 
+        console.log("Emitting bot message via socket...");
         this.socketGateway.emitNewMessage(this.createMessageDto.conversationId, botMessage);
+        console.log("Bot message emission completed");
 
     }
 

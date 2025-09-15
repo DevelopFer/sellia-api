@@ -319,8 +319,21 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, 
     const roomName = `conversation:${conversationId}`;
     const room = this.server.sockets.adapter.rooms.get(roomName);
     
+    this.logger.log(`Attempting to emit message to room: ${roomName}`);
+    this.logger.log(`Room exists: ${!!room}, Room size: ${room?.size || 0}`);
+    this.logger.log(`Message from: ${message.senderId}, Content: ${message.content?.substring(0, 50)}...`);
+    
     if (!room || room.size === 0) {
-      this.logger.warn(`No clients in conversation room: ${roomName}`);
+      this.logger.warn(`No clients in conversation room: ${roomName} - message will not be delivered in real-time`);
+      this.logger.warn(`Message details: ID=${message.id}, From=${message.senderId}, Content="${message.content}"`);
+      
+      // Still try to emit to all connected sockets in case the room management failed
+      this.logger.log(`Attempting broadcast to all connected sockets as fallback`);
+      this.server.emit('message:new', {
+        conversationId,
+        message,
+        timestamp: new Date().toISOString(),
+      });
       return;
     }
     
